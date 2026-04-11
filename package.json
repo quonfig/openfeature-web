@@ -26,7 +26,7 @@
     "@openfeature/web-sdk": ">=1.0.0"
   },
   "devDependencies": {
-    "@quonfig/javascript": "file:../sdk-javascript",
+    "@quonfig/javascript": "^0.0.3",
     "@openfeature/web-sdk": "^1.0.0",
     "@types/node": "^20.11.0",
     "tsup": "^8.0.0",
