@@ -1,6 +1,6 @@
 {
   "name": "@quonfig/openfeature-web",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "OpenFeature provider for Quonfig — Web/Browser (also works with @openfeature/react-sdk)",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -17,7 +17,8 @@
   ],
   "scripts": {
     "build": "rm -rf dist/ && npx tsup",
-    "test": "vitest run",
+    "test": "vitest run --exclude test/conformance/**",
+    "test:conformance": "vitest run test/conformance",
     "lint": "tsc --noEmit",
     "prepublishOnly": "npm run build"
   },
