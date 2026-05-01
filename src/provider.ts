@@ -63,7 +63,7 @@ export class QuonfigWebProvider implements Provider {
   }
 
   async shutdown(): Promise<void> {
-    this.client.close();
+    await this.client.close();
   }
 
   resolveBooleanEvaluation(
