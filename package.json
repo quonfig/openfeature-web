@@ -1,6 +1,6 @@
 {
   "name": "@quonfig/openfeature-web",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "OpenFeature provider for Quonfig — Web/Browser (also works with @openfeature/react-sdk)",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
@@ -23,11 +23,11 @@
     "prepublishOnly": "npm run build"
   },
   "peerDependencies": {
-    "@quonfig/javascript": ">=0.0.12",
+    "@quonfig/javascript": ">=0.0.15",
     "@openfeature/web-sdk": ">=1.0.0"
   },
   "devDependencies": {
-    "@quonfig/javascript": "^0.0.12",
+    "@quonfig/javascript": "^0.0.15",
     "@openfeature/web-sdk": "^1.0.0",
     "@types/node": "^20.11.0",
     "tsup": "^8.0.0",
