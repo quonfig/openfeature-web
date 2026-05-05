@@ -2,9 +2,9 @@
 
 OpenFeature provider for [Quonfig](https://quonfig.com) — Web/Browser.
 
-Works with both vanilla JS (`@openfeature/web-sdk`) and React (`@openfeature/react-sdk`).
-The React SDK re-exports the web SDK and adds hooks (`useFlag`, `useBooleanFlagValue`, etc.) —
-any web provider works with React hooks automatically.
+Works with both vanilla JS (`@openfeature/web-sdk`) and React (`@openfeature/react-sdk`). The React
+SDK re-exports the web SDK and adds hooks (`useFlag`, `useBooleanFlagValue`, etc.) — any web
+provider works with React hooks automatically.
 
 ## Installation
 
@@ -68,24 +68,24 @@ function App() {
 
 ```typescript
 const provider = new QuonfigWebProvider({
-  sdkKey: "qf_sk_...",               // required
-  targetingKeyMapping: "user.id",    // default; maps OpenFeature targetingKey
-  apiUrl: "https://custom.api.com",  // optional — override API base URL
-  timeout: 5000,                     // optional — request timeout in ms
+  sdkKey: "qf_sk_...", // required
+  targetingKeyMapping: "user.id", // default; maps OpenFeature targetingKey
+  apiUrl: "https://custom.api.com", // optional — override API base URL
+  timeout: 5000, // optional — request timeout in ms
 });
 ```
 
 ## Context mapping
 
-OpenFeature uses a flat context; Quonfig uses a namespace-nested context.
-The provider maps between them using dot-notation:
+OpenFeature uses a flat context; Quonfig uses a namespace-nested context. The provider maps between
+them using dot-notation:
 
-| OpenFeature key         | Quonfig context             |
-|-------------------------|-----------------------------|
-| `targetingKey: "u-123"` | `{ user: { id: "u-123" } }` |
+| OpenFeature key         | Quonfig context                |
+| ----------------------- | ------------------------------ |
+| `targetingKey: "u-123"` | `{ user: { id: "u-123" } }`    |
 | `"user.email": "a@b.c"` | `{ user: { email: "a@b.c" } }` |
-| `"org.tier": "pro"`     | `{ org: { tier: "pro" } }`  |
-| `"country": "US"`       | `{ "": { country: "US" } }` |
+| `"org.tier": "pro"`     | `{ org: { tier: "pro" } }`     |
+| `"country": "US"`       | `{ "": { country: "US" } }`    |
 
 Keys without a dot go into the default (empty-string) namespace.
 
@@ -97,8 +97,8 @@ new QuonfigWebProvider({ sdkKey: "...", targetingKeyMapping: "account.id" });
 
 ## What you lose vs. the native SDK
 
-The OpenFeature interface covers boolean, string, number, and object types.
-Some Quonfig-native features require `provider.getClient()` (the escape hatch):
+The OpenFeature interface covers boolean, string, number, and object types. Some Quonfig-native
+features require `provider.getClient()` (the escape hatch):
 
 1. **Log levels** (`shouldLog`, `logger`) — native SDK only
 2. **`string_list` configs** — access via `getObjectValue` and cast to `string[]`

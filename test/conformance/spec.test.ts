@@ -39,16 +39,14 @@ describe("2.2 — Error codes", () => {
     mockGet.mockReturnValue(undefined);
 
     expect(provider.resolveBooleanEvaluation("missing", false).errorCode).toBe(
-      ErrorCode.FLAG_NOT_FOUND,
+      ErrorCode.FLAG_NOT_FOUND
     );
     expect(provider.resolveStringEvaluation("missing", "x").errorCode).toBe(
-      ErrorCode.FLAG_NOT_FOUND,
+      ErrorCode.FLAG_NOT_FOUND
     );
-    expect(provider.resolveNumberEvaluation("missing", 0).errorCode).toBe(
-      ErrorCode.FLAG_NOT_FOUND,
-    );
+    expect(provider.resolveNumberEvaluation("missing", 0).errorCode).toBe(ErrorCode.FLAG_NOT_FOUND);
     expect(provider.resolveObjectEvaluation("missing", {}).errorCode).toBe(
-      ErrorCode.FLAG_NOT_FOUND,
+      ErrorCode.FLAG_NOT_FOUND
     );
   });
 
@@ -59,7 +57,7 @@ describe("2.2 — Error codes", () => {
 
     // Requesting boolean from a string flag -> TYPE_MISMATCH
     expect(provider.resolveBooleanEvaluation("my-flag", false).errorCode).toBe(
-      ErrorCode.TYPE_MISMATCH,
+      ErrorCode.TYPE_MISMATCH
     );
   });
 
@@ -69,7 +67,7 @@ describe("2.2 — Error codes", () => {
     mockGet.mockReturnValue(true);
 
     expect(provider.resolveStringEvaluation("my-flag", "x").errorCode).toBe(
-      ErrorCode.TYPE_MISMATCH,
+      ErrorCode.TYPE_MISMATCH
     );
   });
 });
@@ -131,7 +129,7 @@ describe("2.7 — Resolution reasons", () => {
     mockGet.mockReturnValue(true);
 
     expect(provider.resolveBooleanEvaluation("my-flag", false).reason).toBe(
-      StandardResolutionReasons.STATIC,
+      StandardResolutionReasons.STATIC
     );
   });
 
@@ -141,7 +139,7 @@ describe("2.7 — Resolution reasons", () => {
     mockGet.mockReturnValue("hello");
 
     expect(provider.resolveStringEvaluation("my-flag", "").reason).toBe(
-      StandardResolutionReasons.STATIC,
+      StandardResolutionReasons.STATIC
     );
   });
 
@@ -151,7 +149,7 @@ describe("2.7 — Resolution reasons", () => {
     mockGet.mockReturnValue(undefined);
 
     expect(provider.resolveBooleanEvaluation("missing", false).reason).toBe(
-      StandardResolutionReasons.DEFAULT,
+      StandardResolutionReasons.DEFAULT
     );
   });
 
@@ -161,7 +159,7 @@ describe("2.7 — Resolution reasons", () => {
     mockGet.mockReturnValue("a-string");
 
     expect(provider.resolveBooleanEvaluation("my-flag", false).reason).toBe(
-      StandardResolutionReasons.ERROR,
+      StandardResolutionReasons.ERROR
     );
   });
 });
@@ -232,7 +230,7 @@ describe("onContextChanged — static-context update", () => {
 
     await provider.onContextChanged(
       { targetingKey: "user-1" },
-      { targetingKey: "user-2", "org.tier": "enterprise" },
+      { targetingKey: "user-2", "org.tier": "enterprise" }
     );
 
     expect(mockUpdateContext).toHaveBeenCalledOnce();

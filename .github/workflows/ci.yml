@@ -15,6 +15,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
+      - name: Run formatter
+        run: npm run prettier
       - run: npm test
       - run: npm run test:conformance
       - run: npm run build

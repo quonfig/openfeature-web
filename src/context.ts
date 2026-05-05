@@ -21,8 +21,7 @@ export function mapContext(
     if (key === "targetingKey") {
       const dotIdx = targetingKeyMapping.indexOf(".");
       const ns = dotIdx === -1 ? "" : targetingKeyMapping.slice(0, dotIdx);
-      const prop =
-        dotIdx === -1 ? targetingKeyMapping : targetingKeyMapping.slice(dotIdx + 1);
+      const prop = dotIdx === -1 ? targetingKeyMapping : targetingKeyMapping.slice(dotIdx + 1);
       result[ns] ??= {};
       result[ns][prop] = value;
       continue;

@@ -42,9 +42,7 @@ export class QuonfigWebProvider implements Provider {
   }
 
   async initialize(context?: EvaluationContext): Promise<void> {
-    const nativeCtx = context
-      ? mapContext(context, this.targetingKeyMapping)
-      : { "": {} };
+    const nativeCtx = context ? mapContext(context, this.targetingKeyMapping) : { "": {} };
 
     await this.client.init({
       sdkKey: this.sdkKey,
@@ -54,10 +52,7 @@ export class QuonfigWebProvider implements Provider {
     });
   }
 
-  async onContextChanged(
-    _oldCtx: EvaluationContext,
-    newCtx: EvaluationContext
-  ): Promise<void> {
+  async onContextChanged(_oldCtx: EvaluationContext, newCtx: EvaluationContext): Promise<void> {
     const nativeCtx = mapContext(newCtx, this.targetingKeyMapping);
     await this.client.updateContext(nativeCtx);
   }
@@ -164,12 +159,7 @@ export class QuonfigWebProvider implements Provider {
       case "string":
         if (typeof raw === "string") return raw as unknown as T;
         // Duration objects: return ISO 8601 string representation
-        if (
-          raw !== null &&
-          typeof raw === "object" &&
-          "seconds" in raw &&
-          "ms" in raw
-        ) {
+        if (raw !== null && typeof raw === "object" && "seconds" in raw && "ms" in raw) {
           return this._durationToISO(raw as { seconds: number; ms: number }) as unknown as T;
         }
         return null;
