@@ -5,8 +5,9 @@ import {
   ResolutionDetails,
   StandardResolutionReasons,
 } from "@openfeature/web-sdk";
-import type { EvaluationContext, JsonValue } from "@openfeature/web-sdk";
+import type { EvaluationContext, JsonValue, ResolutionReason } from "@openfeature/web-sdk";
 import { Quonfig } from "@quonfig/javascript";
+import type { EvaluationDetails } from "@quonfig/javascript";
 
 import { mapContext } from "./context";
 import { toErrorCode } from "./errors";
@@ -107,39 +108,53 @@ export class QuonfigWebProvider implements Provider {
     defaultValue: T,
     expectedType: "boolean" | "string" | "number" | "object"
   ): ResolutionDetails<T> {
+    let details: EvaluationDetails;
     try {
-      const raw = this.client.get(flagKey);
-
-      if (raw === undefined || raw === null) {
-        // Flag not found — return OF default
-        return {
-          value: defaultValue,
-          reason: StandardResolutionReasons.DEFAULT,
-          errorCode: ErrorCode.FLAG_NOT_FOUND,
-        };
-      }
-
-      // Type coercion / validation
-      const coerced = this._coerce<T>(raw, expectedType, defaultValue);
-      if (coerced === null) {
-        return {
-          value: defaultValue,
-          reason: StandardResolutionReasons.ERROR,
-          errorCode: ErrorCode.TYPE_MISMATCH,
-        };
-      }
-
-      return {
-        value: coerced,
-        reason: StandardResolutionReasons.STATIC,
-      };
+      details = this.client.getDetails(flagKey);
     } catch (err) {
       return {
         value: defaultValue,
         reason: StandardResolutionReasons.ERROR,
         errorCode: toErrorCode(err),
+        variant: "default",
+        flagMetadata: {},
       };
     }
+
+    // Errors from the SDK side (FLAG_NOT_FOUND, GENERAL) — pass through.
+    if (details.reason === "ERROR") {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: toOFErrorCode(details.errorCode),
+        ...(details.errorMessage ? { errorMessage: details.errorMessage } : {}),
+        variant: details.variant,
+        flagMetadata: details.flagMetadata as ResolutionDetails<T>["flagMetadata"],
+      };
+    }
+
+    // Coerce the resolved value to the expected OF shape. A null result
+    // signals provider-level TYPE_MISMATCH (the SDK has no requested-type
+    // hint, so this happens here, not inside getDetails).
+    const coerced = this._coerce<T>(details.value, expectedType, defaultValue);
+    if (coerced === null) {
+      return {
+        value: defaultValue,
+        reason: StandardResolutionReasons.ERROR,
+        errorCode: ErrorCode.TYPE_MISMATCH,
+        // OF spec convention: variant='default' on the error path; preserve
+        // flagMetadata so consumers still see configId/configType.
+        variant: "default",
+        flagMetadata: details.flagMetadata as ResolutionDetails<T>["flagMetadata"],
+      };
+    }
+
+    return {
+      value: coerced,
+      reason: toOFReason(details.reason),
+      variant: details.variant,
+      flagMetadata: details.flagMetadata as ResolutionDetails<T>["flagMetadata"],
+    };
   }
 
   /**
@@ -191,5 +206,42 @@ export class QuonfigWebProvider implements Provider {
     if (minutes > 0) iso += `${minutes}M`;
     if (secs > 0 || iso === "PT") iso += `${secs}S`;
     return iso;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Map sdk-javascript's EvaluationReason onto OpenFeature's StandardResolutionReasons.
+ * SPLIT is provider-defined; OF allows arbitrary strings, so the literal value works.
+ */
+function toOFReason(reason: EvaluationDetails["reason"]): ResolutionReason {
+  switch (reason) {
+    case "STATIC":
+      return StandardResolutionReasons.STATIC;
+    case "TARGETING_MATCH":
+      return StandardResolutionReasons.TARGETING_MATCH;
+    case "SPLIT":
+      return StandardResolutionReasons.SPLIT;
+    case "DEFAULT":
+      return StandardResolutionReasons.DEFAULT;
+    case "ERROR":
+    default:
+      return StandardResolutionReasons.ERROR;
+  }
+}
+
+/** Translate sdk-javascript's EvaluationErrorCode onto the OF ErrorCode enum. */
+function toOFErrorCode(code: EvaluationDetails["errorCode"]): ErrorCode {
+  switch (code) {
+    case "FLAG_NOT_FOUND":
+      return ErrorCode.FLAG_NOT_FOUND;
+    case "TYPE_MISMATCH":
+      return ErrorCode.TYPE_MISMATCH;
+    case "GENERAL":
+    default:
+      return ErrorCode.GENERAL;
   }
 }

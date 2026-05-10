@@ -7,7 +7,7 @@ import { QuonfigWebProvider } from "../../src/provider";
 // ---------------------------------------------------------------------------
 const mockInit = vi.fn().mockResolvedValue(undefined);
 const mockUpdateContext = vi.fn().mockResolvedValue(undefined);
-const mockGet = vi.fn();
+const mockGetDetails = vi.fn();
 const mockClose = vi.fn();
 
 vi.mock("@quonfig/javascript", () => {
@@ -15,11 +15,32 @@ vi.mock("@quonfig/javascript", () => {
     Quonfig: vi.fn().mockImplementation(() => ({
       init: mockInit,
       updateContext: mockUpdateContext,
-      get: mockGet,
+      getDetails: mockGetDetails,
       close: mockClose,
     })),
   };
 });
+
+// Convenience: build the EvaluationDetails shape returned by Quonfig.getDetails
+// so each test reads as a single mockReturnValue.
+function staticDetails(value: unknown) {
+  return {
+    value,
+    reason: "STATIC",
+    variant: "static",
+    flagMetadata: { configId: "cfg-1", configType: "FEATURE_FLAG" },
+  };
+}
+function flagNotFoundDetails() {
+  return {
+    value: undefined,
+    reason: "ERROR",
+    errorCode: "FLAG_NOT_FOUND",
+    errorMessage: 'No config found for key "missing"',
+    variant: "default",
+    flagMetadata: {},
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -120,7 +141,7 @@ describe("QuonfigWebProvider", () => {
   // -------------------------------------------------------------------------
   describe("resolveBooleanEvaluation()", () => {
     it("returns the boolean value from the client", () => {
-      mockGet.mockReturnValue(true);
+      mockGetDetails.mockReturnValue(staticDetails(true));
       const provider = makeProvider();
       const result = provider.resolveBooleanEvaluation("my-flag", false);
       expect(result.value).toBe(true);
@@ -128,7 +149,7 @@ describe("QuonfigWebProvider", () => {
     });
 
     it("returns default + FLAG_NOT_FOUND when key is missing", () => {
-      mockGet.mockReturnValue(undefined);
+      mockGetDetails.mockReturnValue(flagNotFoundDetails());
       const provider = makeProvider();
       const result = provider.resolveBooleanEvaluation("missing-flag", false);
       expect(result.value).toBe(false);
@@ -136,15 +157,15 @@ describe("QuonfigWebProvider", () => {
     });
 
     it("returns default + TYPE_MISMATCH when value is wrong type", () => {
-      mockGet.mockReturnValue("not-a-bool");
+      mockGetDetails.mockReturnValue(staticDetails("not-a-bool"));
       const provider = makeProvider();
       const result = provider.resolveBooleanEvaluation("str-flag", false);
       expect(result.value).toBe(false);
       expect(result.errorCode).toBe(ErrorCode.TYPE_MISMATCH);
     });
 
-    it("returns default + error code when client.get() throws", () => {
-      mockGet.mockImplementation(() => {
+    it("returns default + error code when client.getDetails() throws", () => {
+      mockGetDetails.mockImplementation(() => {
         throw new Error("not initialized");
       });
       const provider = makeProvider();
@@ -159,7 +180,7 @@ describe("QuonfigWebProvider", () => {
   // -------------------------------------------------------------------------
   describe("resolveStringEvaluation()", () => {
     it("returns the string value from the client", () => {
-      mockGet.mockReturnValue("hello");
+      mockGetDetails.mockReturnValue(staticDetails("hello"));
       const provider = makeProvider();
       const result = provider.resolveStringEvaluation("str-flag", "default");
       expect(result.value).toBe("hello");
@@ -167,14 +188,14 @@ describe("QuonfigWebProvider", () => {
     });
 
     it("returns ISO 8601 for a Duration value", () => {
-      mockGet.mockReturnValue({ seconds: 5400, ms: 5400000 }); // 1h30m
+      mockGetDetails.mockReturnValue(staticDetails({ seconds: 5400, ms: 5400000 })); // 1h30m
       const provider = makeProvider();
       const result = provider.resolveStringEvaluation("duration-flag", "PT0S");
       expect(result.value).toBe("PT1H30M");
     });
 
     it("returns TYPE_MISMATCH for a boolean value", () => {
-      mockGet.mockReturnValue(true);
+      mockGetDetails.mockReturnValue(staticDetails(true));
       const provider = makeProvider();
       const result = provider.resolveStringEvaluation("bool-flag", "default");
       expect(result.value).toBe("default");
@@ -187,14 +208,14 @@ describe("QuonfigWebProvider", () => {
   // -------------------------------------------------------------------------
   describe("resolveNumberEvaluation()", () => {
     it("returns a number value", () => {
-      mockGet.mockReturnValue(42);
+      mockGetDetails.mockReturnValue(staticDetails(42));
       const provider = makeProvider();
       const result = provider.resolveNumberEvaluation("num-flag", 0);
       expect(result.value).toBe(42);
     });
 
     it("returns TYPE_MISMATCH for a string value", () => {
-      mockGet.mockReturnValue("forty-two");
+      mockGetDetails.mockReturnValue(staticDetails("forty-two"));
       const provider = makeProvider();
       const result = provider.resolveNumberEvaluation("str-flag", 0);
       expect(result.value).toBe(0);
@@ -208,21 +229,21 @@ describe("QuonfigWebProvider", () => {
   describe("resolveObjectEvaluation()", () => {
     it("returns a plain object value", () => {
       const obj = { foo: "bar" };
-      mockGet.mockReturnValue(obj);
+      mockGetDetails.mockReturnValue(staticDetails(obj));
       const provider = makeProvider();
       const result = provider.resolveObjectEvaluation("obj-flag", {});
       expect(result.value).toEqual({ foo: "bar" });
     });
 
     it("returns a string_list (array) value", () => {
-      mockGet.mockReturnValue(["a", "b", "c"]);
+      mockGetDetails.mockReturnValue(staticDetails(["a", "b", "c"]));
       const provider = makeProvider();
       const result = provider.resolveObjectEvaluation<string[]>("list-flag", []);
       expect(result.value).toEqual(["a", "b", "c"]);
     });
 
     it("returns TYPE_MISMATCH for a string scalar", () => {
-      mockGet.mockReturnValue("just-a-string");
+      mockGetDetails.mockReturnValue(staticDetails("just-a-string"));
       const provider = makeProvider();
       const result = provider.resolveObjectEvaluation("str-flag", {});
       expect(result.value).toEqual({});
@@ -238,7 +259,7 @@ describe("QuonfigWebProvider", () => {
       const provider = makeProvider();
       const client = provider.getClient();
       expect(client).toBeDefined();
-      expect(typeof client.get).toBe("function");
+      expect(typeof client.getDetails).toBe("function");
     });
   });
 
