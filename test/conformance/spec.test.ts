@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ErrorCode, StandardResolutionReasons } from "@openfeature/web-sdk";
 import { QuonfigWebProvider } from "../../src/provider";
 
-const mockGet = vi.fn();
+const mockGetDetails = vi.fn();
 const mockInit = vi.fn().mockResolvedValue(undefined);
 const mockUpdateContext = vi.fn().mockResolvedValue(undefined);
 const mockClose = vi.fn();
@@ -14,10 +14,30 @@ vi.mock("@quonfig/javascript", () => ({
   Quonfig: vi.fn().mockImplementation(() => ({
     init: mockInit,
     updateContext: mockUpdateContext,
-    get: mockGet,
+    getDetails: mockGetDetails,
     close: mockClose,
   })),
 }));
+
+// Convenience: build the EvaluationDetails shape returned by Quonfig.getDetails().
+function staticDetails(value: unknown) {
+  return {
+    value,
+    reason: "STATIC",
+    variant: "static",
+    flagMetadata: { configId: "cfg-1", configType: "FEATURE_FLAG" },
+  };
+}
+function flagNotFoundDetails() {
+  return {
+    value: undefined,
+    reason: "ERROR",
+    errorCode: "FLAG_NOT_FOUND",
+    errorMessage: "No config found for key",
+    variant: "default",
+    flagMetadata: {},
+  };
+}
 
 function makeProvider() {
   return new QuonfigWebProvider({ sdkKey: "qf_sk_test" });
@@ -26,17 +46,17 @@ function makeProvider() {
 beforeEach(() => {
   vi.clearAllMocks();
   mockInit.mockResolvedValue(undefined);
-  mockGet.mockReturnValue(undefined); // default: flag not found
+  mockGetDetails.mockReturnValue(flagNotFoundDetails()); // default: flag not found
 });
 
 // ---------------------------------------------------------------------------
 // 2.2 — Error codes
 // ---------------------------------------------------------------------------
 describe("2.2 — Error codes", () => {
-  it("2.2.2: FLAG_NOT_FOUND when get() returns undefined", async () => {
+  it("2.2.2: FLAG_NOT_FOUND when getDetails reports a missing flag", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(undefined);
+    mockGetDetails.mockReturnValue(flagNotFoundDetails());
 
     expect(provider.resolveBooleanEvaluation("missing", false).errorCode).toBe(
       ErrorCode.FLAG_NOT_FOUND
@@ -53,7 +73,7 @@ describe("2.2 — Error codes", () => {
   it("2.2.3: TYPE_MISMATCH when flag value does not match requested type", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue("a string");
+    mockGetDetails.mockReturnValue(staticDetails("a string"));
 
     // Requesting boolean from a string flag -> TYPE_MISMATCH
     expect(provider.resolveBooleanEvaluation("my-flag", false).errorCode).toBe(
@@ -64,7 +84,7 @@ describe("2.2 — Error codes", () => {
   it("2.2.3: TYPE_MISMATCH when requesting string from a boolean flag", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(true);
+    mockGetDetails.mockReturnValue(staticDetails(true));
 
     expect(provider.resolveStringEvaluation("my-flag", "x").errorCode).toBe(
       ErrorCode.TYPE_MISMATCH
@@ -79,7 +99,7 @@ describe("2.1 — Default value returned on error", () => {
   it("returns boolean default when flag missing", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(undefined);
+    mockGetDetails.mockReturnValue(flagNotFoundDetails());
 
     expect(provider.resolveBooleanEvaluation("missing", true).value).toBe(true);
     expect(provider.resolveBooleanEvaluation("missing", false).value).toBe(false);
@@ -88,7 +108,7 @@ describe("2.1 — Default value returned on error", () => {
   it("returns string default when flag missing", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(undefined);
+    mockGetDetails.mockReturnValue(flagNotFoundDetails());
 
     expect(provider.resolveStringEvaluation("missing", "sentinel").value).toBe("sentinel");
   });
@@ -96,7 +116,7 @@ describe("2.1 — Default value returned on error", () => {
   it("returns number default when flag missing", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(undefined);
+    mockGetDetails.mockReturnValue(flagNotFoundDetails());
 
     expect(provider.resolveNumberEvaluation("missing", 42).value).toBe(42);
   });
@@ -104,7 +124,7 @@ describe("2.1 — Default value returned on error", () => {
   it("returns object default when flag missing", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(undefined);
+    mockGetDetails.mockReturnValue(flagNotFoundDetails());
 
     const def = { x: 1 };
     expect(provider.resolveObjectEvaluation("missing", def).value).toEqual(def);
@@ -113,7 +133,7 @@ describe("2.1 — Default value returned on error", () => {
   it("returns default when type mismatch occurs", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue("not-a-bool");
+    mockGetDetails.mockReturnValue(staticDetails("not-a-bool"));
 
     expect(provider.resolveBooleanEvaluation("my-flag", true).value).toBe(true);
   });
@@ -126,7 +146,7 @@ describe("2.7 — Resolution reasons", () => {
   it("returns STATIC reason for found boolean flag", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(true);
+    mockGetDetails.mockReturnValue(staticDetails(true));
 
     expect(provider.resolveBooleanEvaluation("my-flag", false).reason).toBe(
       StandardResolutionReasons.STATIC
@@ -136,27 +156,27 @@ describe("2.7 — Resolution reasons", () => {
   it("returns STATIC reason for found string flag", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue("hello");
+    mockGetDetails.mockReturnValue(staticDetails("hello"));
 
     expect(provider.resolveStringEvaluation("my-flag", "").reason).toBe(
       StandardResolutionReasons.STATIC
     );
   });
 
-  it("returns DEFAULT reason for missing flag", async () => {
+  it("returns ERROR reason + FLAG_NOT_FOUND for missing flag", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(undefined);
+    mockGetDetails.mockReturnValue(flagNotFoundDetails());
 
-    expect(provider.resolveBooleanEvaluation("missing", false).reason).toBe(
-      StandardResolutionReasons.DEFAULT
-    );
+    const result = provider.resolveBooleanEvaluation("missing", false);
+    expect(result.reason).toBe(StandardResolutionReasons.ERROR);
+    expect(result.errorCode).toBe(ErrorCode.FLAG_NOT_FOUND);
   });
 
   it("returns ERROR reason for type mismatch", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue("a-string");
+    mockGetDetails.mockReturnValue(staticDetails("a-string"));
 
     expect(provider.resolveBooleanEvaluation("my-flag", false).reason).toBe(
       StandardResolutionReasons.ERROR
@@ -171,7 +191,7 @@ describe("2.4 — All evaluation types", () => {
   it("resolves boolean correctly", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(true);
+    mockGetDetails.mockReturnValue(staticDetails(true));
 
     expect(provider.resolveBooleanEvaluation("flag", false).value).toBe(true);
   });
@@ -179,7 +199,7 @@ describe("2.4 — All evaluation types", () => {
   it("resolves string correctly", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue("world");
+    mockGetDetails.mockReturnValue(staticDetails("world"));
 
     expect(provider.resolveStringEvaluation("flag", "").value).toBe("world");
   });
@@ -187,7 +207,7 @@ describe("2.4 — All evaluation types", () => {
   it("resolves number correctly", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(99);
+    mockGetDetails.mockReturnValue(staticDetails(99));
 
     expect(provider.resolveNumberEvaluation("flag", 0).value).toBe(99);
   });
@@ -195,7 +215,7 @@ describe("2.4 — All evaluation types", () => {
   it("resolves array (string_list) as object correctly", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue(["a", "b"]);
+    mockGetDetails.mockReturnValue(staticDetails(["a", "b"]));
 
     expect(provider.resolveObjectEvaluation("flag", []).value).toEqual(["a", "b"]);
   });
@@ -203,7 +223,7 @@ describe("2.4 — All evaluation types", () => {
   it("resolves JSON object correctly", async () => {
     const provider = makeProvider();
     await provider.initialize();
-    mockGet.mockReturnValue({ tier: "pro" });
+    mockGetDetails.mockReturnValue(staticDetails({ tier: "pro" }));
 
     expect(provider.resolveObjectEvaluation("flag", {}).value).toEqual({ tier: "pro" });
   });
