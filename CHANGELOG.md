@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.0.8 - 2026-05-21
+
+- Bump `@quonfig/javascript` peer + dev dependency to `0.0.17` (`^0.0.17` dev, `>=0.0.17` peer
+  floor). No provider code changes — the `0.0.17` removal of `collectLoggerNames` /
+  `LoggerAggregator` (qfg-o2fk) does not affect this package.
+
 ## 0.0.7 - 2026-05-14
 
 - Resolve flag evaluations via the parent SDK's `getDetails()` so OpenFeature `ResolutionDetails`
