@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.0.9 - 2026-06-05
+
+- Bump `@quonfig/javascript` peer + dev dependency to `0.0.18` (`^0.0.18` dev, `>=0.0.18` peer
+  floor). The prior `^0.0.17` dev pin excluded `0.0.18` on the `0.0.x` range, so the provider could
+  not pick up the underlying SDK's ETag/304 conditional polling (qfg-iikt) or the `poll()` bootstrap
+  self-heal (qfg-8uw5). No provider code changes — both are transparent behavioral improvements in
+  the wrapped SDK.
+
 ## 0.0.8 - 2026-05-21
 
 - Bump `@quonfig/javascript` peer + dev dependency to `0.0.17` (`^0.0.17` dev, `>=0.0.17` peer
