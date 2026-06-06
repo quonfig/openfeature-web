@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.0 - 2026-06-06
+
+- **Stable 1.0.0 release.** The Quonfig OpenFeature provider for the browser is now declared stable
+  and tracks `@quonfig/javascript` >= 1.0.0. No API or behavior changes from 0.0.9 — this is a
+  coordinated 1.0.0 version stamp across the entire Quonfig SDK family.
+
 ## 0.0.9 - 2026-06-05
 
 - Bump `@quonfig/javascript` peer + dev dependency to `0.0.18` (`^0.0.18` dev, `>=0.0.18` peer
