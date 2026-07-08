@@ -104,14 +104,14 @@ features require `provider.getClient()` (the escape hatch):
 2. **`string_list` configs** — access via `getObjectValue` and cast to `string[]`
 3. **`duration` configs** — `getStringValue` returns an ISO 8601 string; parse client-side
 4. **`bytes` configs** — not accessible via OpenFeature
-5. **`keys()` and `raw()`** — native SDK only
+5. **Bulk config access** (`extract()`, the `configs` getter, `get()`) — native SDK only
 6. **Context keys** must use dot-notation (`"user.email"`), not nested objects
 7. **`targetingKey`** maps to `user.id` by default — configure `targetingKeyMapping` if different
 
 ```typescript
 // Escape hatch for Quonfig-native features
 const native = provider.getClient();
-native.shouldLog({ loggerName: "auth", desiredLevel: "DEBUG", defaultLevel: "WARN" });
+native.shouldLog({ configKey: "log-level.auth", desiredLevel: "DEBUG", defaultLevel: "WARN" });
 ```
 
 ## License
