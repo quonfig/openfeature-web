@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- **Fix: a Duration resolved as a string is serialized in the canonical Quonfig grammar
+  (qfg-2agi.14).** `_durationToISO` folded days into hours (`P1D` -> `PT24H`) and carried float
+  residue into seconds (`PT0.30000000000000004S`). It now works from the integer ms count and emits
+  days as `D`, omits zero components and writes at most millisecond fractions on seconds (e.g.
+  `P1DT6H2M1.5S`, `PT1M30S`, `PT0S`), matching `integration-test-data/tests/duration/grammar.yaml`.
+
 ## 1.0.0 - 2026-06-06
 
 - **Stable 1.0.0 release.** The Quonfig OpenFeature provider for the browser is now declared stable

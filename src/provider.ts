@@ -194,18 +194,33 @@ export class QuonfigWebProvider implements Provider {
     }
   }
 
-  /** Convert a Quonfig Duration to an ISO 8601 duration string (e.g. "PT1H30M"). */
+  /**
+   * Convert a Quonfig Duration to its canonical ISO 8601 string in the Quonfig
+   * duration grammar (e.g. "P1DT6H2M1.5S"): days kept as D, zero components
+   * omitted, "PT0S" for zero. Works from the integer ms count, so the output
+   * carries no float residue.
+   */
   private _durationToISO(duration: { seconds: number; ms: number }): string {
-    const totalSeconds = duration.seconds;
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const secs = totalSeconds % 60;
+    let rest = Math.round(duration.ms);
+    const days = Math.floor(rest / 86400000);
+    rest -= days * 86400000;
+    const hours = Math.floor(rest / 3600000);
+    rest -= hours * 3600000;
+    const minutes = Math.floor(rest / 60000);
+    rest -= minutes * 60000;
+    const secs = Math.floor(rest / 1000);
+    const millis = rest - secs * 1000;
 
-    let iso = "PT";
-    if (hours > 0) iso += `${hours}H`;
-    if (minutes > 0) iso += `${minutes}M`;
-    if (secs > 0 || iso === "PT") iso += `${secs}S`;
-    return iso;
+    let time = "";
+    if (hours > 0) time += `${hours}H`;
+    if (minutes > 0) time += `${minutes}M`;
+    if (secs > 0 || millis > 0) {
+      const fraction = millis > 0 ? `.${String(millis).padStart(3, "0").replace(/0+$/, "")}` : "";
+      time += `${secs}${fraction}S`;
+    }
+
+    if (days === 0 && time === "") return "PT0S";
+    return `P${days > 0 ? `${days}D` : ""}${time ? `T${time}` : ""}`;
   }
 }
 

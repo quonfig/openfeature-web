@@ -194,6 +194,44 @@ describe("QuonfigWebProvider", () => {
       expect(result.value).toBe("PT1H30M");
     });
 
+    // Canonical output in the Quonfig duration grammar
+    // (integration-test-data tests/duration/grammar.yaml): days kept as D,
+    // zero components omitted, a fraction only on S with no float residue.
+    const DURATION_GRAMMAR =
+      /^P(?:[0-9]+D)?(?:T(?:[0-9]+H)?(?:[0-9]+M)?(?:[0-9]+(?:\.[0-9]{1,9})?S)?)?$/;
+    it.each([
+      [0, "PT0S"],
+      [200, "PT0.2S"],
+      [1000, "PT1S"],
+      [1500, "PT1.5S"],
+      [2010, "PT2.01S"],
+      [1005, "PT1.005S"],
+      [60000, "PT1M"],
+      [90000, "PT1M30S"],
+      [3600000, "PT1H"],
+      [5400000, "PT1H30M"],
+      [86400000, "P1D"],
+      [86401000, "P1DT1S"],
+      [108121500, "P1DT6H2M1.5S"],
+      [3153600000000, "P36500D"],
+    ])("serializes %d ms as canonical %s", (ms, iso) => {
+      mockGetDetails.mockReturnValue(staticDetails({ seconds: ms / 1000, ms }));
+      const provider = makeProvider();
+      const result = provider.resolveStringEvaluation("duration-flag", "default");
+      expect(result.value).toBe(iso);
+      expect(result.value).toMatch(DURATION_GRAMMAR);
+    });
+
+    it("emits no float residue for a non-integer ms count", () => {
+      // 0.1 + 0.2 seconds as an older SDK could compute it
+      mockGetDetails.mockReturnValue(
+        staticDetails({ seconds: 0.30000000000000004, ms: 300.00000000000006 })
+      );
+      const provider = makeProvider();
+      const result = provider.resolveStringEvaluation("duration-flag", "default");
+      expect(result.value).toBe("PT0.3S");
+    });
+
     it("returns TYPE_MISMATCH for a boolean value", () => {
       mockGetDetails.mockReturnValue(staticDetails(true));
       const provider = makeProvider();
