@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 - 2026-10-05
 
 - **Fix: a Duration resolved as a string is serialized in the canonical Quonfig grammar
   (qfg-2agi.14).** `_durationToISO` folded days into hours (`P1D` -> `PT24H`) and carried float

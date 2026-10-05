@@ -1,6 +1,6 @@
 {
   "name": "@quonfig/openfeature-web",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "OpenFeature provider for Quonfig — Web/Browser (also works with @openfeature/react-sdk)",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
