@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.2 - 2026-10-09
+
+- Raise the `@quonfig/javascript` peer floor from `>=1.0.0` to `>=1.4.0` (dev pin `^1.4.0`) so
+  provider users inherit sdk-javascript 1.4.0: superseded loads become inert and `skipLoad` + poll
+  fetches the new context (context-switch races, qfg-goi1.2.7, qfg-goi1.2.48), poll/init hardening
+  and a bounded last-known-good cache (qfg-goi1.2.6). No change to this provider's behavior.
+
 ## 1.0.1 - 2026-10-05
 
 - **Fix: a Duration resolved as a string is serialized in the canonical Quonfig grammar
