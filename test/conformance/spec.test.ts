@@ -11,12 +11,15 @@ const mockUpdateContext = vi.fn().mockResolvedValue(undefined);
 const mockClose = vi.fn();
 
 vi.mock("@quonfig/javascript", () => ({
-  Quonfig: vi.fn().mockImplementation(() => ({
-    init: mockInit,
-    updateContext: mockUpdateContext,
-    getDetails: mockGetDetails,
-    close: mockClose,
-  })),
+  // `function` (not an arrow) so vitest 4 can call it with `new`.
+  Quonfig: vi.fn().mockImplementation(function () {
+    return {
+      init: mockInit,
+      updateContext: mockUpdateContext,
+      getDetails: mockGetDetails,
+      close: mockClose,
+    };
+  }),
 }));
 
 // Convenience: build the EvaluationDetails shape returned by Quonfig.getDetails().
