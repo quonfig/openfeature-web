@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.0.3 - 2026-10-16
+
+- Bump the `@quonfig/javascript` dev dependency to `^1.5.0` so the provider is built and tested
+  against sdk-javascript 1.5.0. The peer floor stays at `>=1.4.0`: the provider uses no API added in
+  1.5.0, and `>=1.4.0` already lets installs resolve 1.5.0. With 1.5.0, provider users get slower
+  polling plus one ERROR log for an invalid or revoked SDK key (401/403/404/410, qfg-goi1.10.29),
+  overlapping `init()` calls installing only the newer context (qfg-goi1.10.12), `stale` clearing on
+  same-generation recovery, and eval-summary counters per evaluated value. No change to this
+  provider's behavior.
+
 ## 1.0.2 - 2026-10-09
 
 - Raise the `@quonfig/javascript` peer floor from `>=1.0.0` to `>=1.4.0` (dev pin `^1.4.0`) so
