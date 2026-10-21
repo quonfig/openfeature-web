@@ -72,8 +72,26 @@ const provider = new QuonfigWebProvider({
   targetingKeyMapping: "user.id", // default; maps OpenFeature targetingKey
   apiUrl: "https://custom.api.com", // optional — override API base URL
   timeout: 5000, // optional — request timeout in ms
+  onInitFailure: "fail", // optional — "fail" (default) | "wait" | "continue"
+  initTimeout: 5000, // optional — ms to keep retrying before onInitFailure applies
 });
 ```
+
+### Init failure and provider status
+
+When no config can be loaded by `initTimeout`, `onInitFailure` decides what `initialize()` does. A
+cached last-known-good copy in localStorage counts as config in every mode.
+
+| `onInitFailure`        | `initialize()`                  | Provider status   | When delivery comes back |
+| ---------------------- | ------------------------------- | ----------------- | ------------------------ |
+| `"fail"` (default)     | Rejects (`QuonfigInitError`)    | ERROR             | `PROVIDER_READY`         |
+| `"wait"`               | Stays pending until config      | NOT_READY         | `initialize()` resolves  |
+| `"continue"` + cache   | Resolves                        | STALE             | `PROVIDER_READY`         |
+| `"continue"`, no cache | Resolves, then `PROVIDER_ERROR` | ERROR (non-fatal) | `PROVIDER_READY`         |
+
+The client keeps retrying in the background in every mode. Evaluations served from the cached copy
+report reason `STALE`; with no config at all they return your default with error code
+`PROVIDER_NOT_READY`.
 
 ## Context mapping
 
