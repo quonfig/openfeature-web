@@ -26,11 +26,11 @@
     "version": "prettier --write CHANGELOG.md README.md && git add CHANGELOG.md README.md"
   },
   "peerDependencies": {
-    "@quonfig/javascript": ">=1.4.0",
+    "@quonfig/javascript": ">=1.6.0",
     "@openfeature/web-sdk": ">=1.0.0"
   },
   "devDependencies": {
-    "@quonfig/javascript": "^1.5.0",
+    "@quonfig/javascript": "^1.6.0",
     "@openfeature/web-sdk": "^1.0.0",
     "@types/node": "^26.6.4",
     "prettier": "^3.0.0",

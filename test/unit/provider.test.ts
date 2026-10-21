@@ -19,6 +19,11 @@ vi.mock("@quonfig/javascript", () => {
         updateContext: mockUpdateContext,
         getDetails: mockGetDetails,
         close: mockClose,
+        // A live client: ready, not serving a cached copy.
+        isReady: () => true,
+        loaded: true,
+        stale: false,
+        subscribe: () => () => {},
       };
     }),
   };

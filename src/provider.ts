@@ -2,12 +2,13 @@ import {
   ErrorCode,
   OpenFeatureEventEmitter,
   Provider,
+  ProviderEvents,
   ResolutionDetails,
   StandardResolutionReasons,
 } from "@openfeature/web-sdk";
 import type { EvaluationContext, JsonValue, ResolutionReason } from "@openfeature/web-sdk";
 import { Quonfig } from "@quonfig/javascript";
-import type { EvaluationDetails } from "@quonfig/javascript";
+import type { EvaluationDetails, OnInitFailure } from "@quonfig/javascript";
 
 import { mapContext } from "./context";
 import { toErrorCode } from "./errors";
@@ -20,7 +21,24 @@ export interface QuonfigWebProviderOptions {
   apiUrl?: string;
   /** Request timeout in ms. */
   timeout?: number;
+  /**
+   * What `initialize()` does when no Quonfig config is available by
+   * `initTimeout`. Passed to `@quonfig/javascript`'s `init()`; default `"fail"`.
+   * A cached last-known-good copy counts as config in every mode.
+   *
+   * - `"fail"`: `initialize()` rejects, so the provider status is ERROR. The
+   *   client keeps retrying and the provider emits PROVIDER_READY on heal.
+   * - `"wait"`: `initialize()` stays pending (status NOT_READY) until config arrives.
+   * - `"continue"`: `initialize()` resolves, then the provider emits
+   *   PROVIDER_STALE (serving a cached copy) or PROVIDER_ERROR (serving code
+   *   defaults), and PROVIDER_READY on heal.
+   */
+  onInitFailure?: OnInitFailure;
+  /** Overall init deadline in ms before `onInitFailure` applies (SDK default 5000). */
+  initTimeout?: number;
 }
+
+type ReportedStatus = "READY" | "STALE" | "ERROR";
 
 export class QuonfigWebProvider implements Provider {
   readonly metadata = { name: "quonfig-web" } as const;
@@ -33,24 +51,55 @@ export class QuonfigWebProvider implements Provider {
   private readonly sdkKey: string;
   private readonly apiUrl: string | undefined;
   private readonly timeout: number | undefined;
+  private readonly onInitFailure: OnInitFailure | undefined;
+  private readonly initTimeout: number | undefined;
+  // The status OpenFeature last saw from this provider; undefined until
+  // initialize() settles (OpenFeature owns the status before that).
+  private reported: ReportedStatus | undefined;
+  private unsubscribe: (() => void) | undefined;
 
   constructor(options: QuonfigWebProviderOptions) {
     this.sdkKey = options.sdkKey;
     this.targetingKeyMapping = options.targetingKeyMapping ?? "user.id";
     this.apiUrl = options.apiUrl;
     this.timeout = options.timeout;
+    this.onInitFailure = options.onInitFailure;
+    this.initTimeout = options.initTimeout;
     this.client = new Quonfig();
   }
 
   async initialize(context?: EvaluationContext): Promise<void> {
     const nativeCtx = context ? mapContext(context, this.targetingKeyMapping) : { "": {} };
 
-    await this.client.init({
-      sdkKey: this.sdkKey,
-      context: nativeCtx,
-      ...(this.apiUrl !== undefined && { apiUrl: this.apiUrl }),
-      ...(this.timeout !== undefined && { timeout: this.timeout }),
-    });
+    this.reported = undefined;
+    // The SDK notifies subscribers when it heals (or falls back to a cached
+    // copy); syncStatus turns that into the matching provider event.
+    this.unsubscribe ??= this.client.subscribe(() => this.syncStatus());
+
+    try {
+      await this.client.init({
+        sdkKey: this.sdkKey,
+        context: nativeCtx,
+        ...(this.apiUrl !== undefined && { apiUrl: this.apiUrl }),
+        ...(this.timeout !== undefined && { timeout: this.timeout }),
+        ...(this.onInitFailure !== undefined && { onInitFailure: this.onInitFailure }),
+        ...(this.initTimeout !== undefined && { initTimeout: this.initTimeout }),
+      });
+    } catch (err) {
+      // onInitFailure "fail": OpenFeature marks the provider ERROR from this
+      // rejection. The client stays alive and keeps retrying in the
+      // background; syncStatus emits PROVIDER_READY when it heals.
+      this.reported = "ERROR";
+      // Catch a heal that landed before OpenFeature applied ERROR.
+      setTimeout(() => this.syncStatus(), 0);
+      throw err;
+    }
+
+    // OpenFeature marks the provider READY once this resolves. Under
+    // "continue" (or a cached copy) the client is not live yet, so report
+    // STALE or ERROR right after OpenFeature has applied READY.
+    this.reported = "READY";
+    if (this.currentStatus() !== "READY") setTimeout(() => this.syncStatus(), 0);
   }
 
   async onContextChanged(_oldCtx: EvaluationContext, newCtx: EvaluationContext): Promise<void> {
@@ -59,6 +108,8 @@ export class QuonfigWebProvider implements Provider {
   }
 
   async shutdown(): Promise<void> {
+    this.unsubscribe?.();
+    this.unsubscribe = undefined;
     await this.client.close();
   }
 
@@ -103,6 +154,32 @@ export class QuonfigWebProvider implements Provider {
   // Private helpers
   // ---------------------------------------------------------------------------
 
+  /** What the client is serving: live config, a cached copy, or nothing (defaults). */
+  private currentStatus(): ReportedStatus {
+    if (this.client.stale) return "STALE";
+    return this.client.isReady() ? "READY" : "ERROR";
+  }
+
+  /** Emit the provider event for a status change (design doc B.5). */
+  private syncStatus(): void {
+    if (this.reported === undefined) return;
+    const next = this.currentStatus();
+    if (next === this.reported) return;
+    this.reported = next;
+    if (next === "READY") {
+      this.events.emit(ProviderEvents.Ready);
+    } else if (next === "STALE") {
+      this.events.emit(ProviderEvents.Stale, {
+        message: "Quonfig: serving a cached copy of config; delivery not reachable yet",
+      });
+    } else {
+      this.events.emit(ProviderEvents.Error, {
+        message: "Quonfig: no config loaded; serving code defaults until delivery is reachable",
+        errorCode: ErrorCode.PROVIDER_NOT_READY,
+      });
+    }
+  }
+
   private _resolve<T>(
     flagKey: string,
     defaultValue: T,
@@ -121,12 +198,15 @@ export class QuonfigWebProvider implements Provider {
       };
     }
 
-    // Errors from the SDK side (FLAG_NOT_FOUND, GENERAL) — pass through.
+    // Errors from the SDK side (FLAG_NOT_FOUND, GENERAL) — pass through. With
+    // no config at all (init failed or "continue" on defaults) the outage code
+    // is PROVIDER_NOT_READY.
     if (details.reason === "ERROR") {
+      const noConfig = !this.client.loaded;
       return {
         value: defaultValue,
         reason: StandardResolutionReasons.ERROR,
-        errorCode: toOFErrorCode(details.errorCode),
+        errorCode: noConfig ? ErrorCode.PROVIDER_NOT_READY : toOFErrorCode(details.errorCode),
         ...(details.errorMessage ? { errorMessage: details.errorMessage } : {}),
         variant: details.variant,
         flagMetadata: details.flagMetadata as ResolutionDetails<T>["flagMetadata"],
@@ -242,6 +322,8 @@ function toOFReason(reason: EvaluationDetails["reason"]): ResolutionReason {
       return StandardResolutionReasons.SPLIT;
     case "DEFAULT":
       return StandardResolutionReasons.DEFAULT;
+    case "STALE":
+      return StandardResolutionReasons.STALE;
     case "ERROR":
     default:
       return StandardResolutionReasons.ERROR;
