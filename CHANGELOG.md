@@ -1,17 +1,21 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 - 2026-10-23
 
-- **Init-failure status mapping (qfg-9p4i.12).** Requires `@quonfig/javascript` 1.6.0 (peer floor
-  raised from `>=1.4.0` to `>=1.6.0`, dev pin `^1.6.0`), which adds `onInitFailure` and
-  `initTimeout`. The provider takes both options and passes them to `init()`, and maps the outcome
-  onto OpenFeature status: `"fail"` (default) rejects `initialize()` so the status is ERROR, while
-  the client keeps retrying; `"wait"` keeps the provider NOT_READY until config arrives;
-  `"continue"` reports STALE when serving a cached copy and ERROR (non-fatal) on code defaults. In
-  every mode the provider emits `PROVIDER_READY` when the client heals. Evaluations served from the
-  cached copy now report reason `STALE` (they fell through to `ERROR` before), and evaluations with
-  no config return the default with error code `PROVIDER_NOT_READY` (was `GENERAL`). With live
-  config nothing changes.
+- **Init-failure status mapping (qfg-9p4i.12).** Requires `@quonfig/javascript` 1.6.0 or later,
+  which adds `onInitFailure` and `initTimeout`. The provider takes both options and passes them to
+  `init()`, and maps the outcome onto OpenFeature status: `"fail"` (default) rejects `initialize()`
+  so the status is ERROR, while the client keeps retrying; `"wait"` keeps the provider NOT_READY
+  until config arrives; `"continue"` reports STALE when serving a cached copy and ERROR (non-fatal)
+  on code defaults. In every mode the provider emits `PROVIDER_READY` when the client heals.
+  Evaluations served from the cached copy now report reason `STALE` (they fell through to `ERROR`
+  before), and evaluations with no config return the default with error code `PROVIDER_NOT_READY`
+  (was `GENERAL`). With live config nothing changes.
+- Raise the `@quonfig/javascript` peer floor from `>=1.4.0` to `>=1.8.0` (dev pin `^1.8.0`). Besides
+  the 1.6.0 init options above, provider users inherit sdk-javascript 1.7.0 and 1.8.0: reads of
+  values seeded with `hydrate()` and reads made before `init()` are now counted in evaluation
+  telemetry (qfg-27wr), and the client gains `peek()` (qfg-6vno.10). The provider does not call
+  `peek()`, so its evaluations are still recorded as before.
 
 ## 1.0.3 - 2026-10-16
 
