@@ -106,12 +106,12 @@ describe("QuonfigWebProvider", () => {
   });
 
   // -------------------------------------------------------------------------
-  // onContextChanged()
+  // onContextChange()
   // -------------------------------------------------------------------------
-  describe("onContextChanged()", () => {
+  describe("onContextChange()", () => {
     it("calls client.updateContext() with mapped new context", async () => {
       const provider = makeProvider();
-      await provider.onContextChanged(
+      await provider.onContextChange(
         { targetingKey: "old-user" },
         { targetingKey: "new-user", "org.plan": "enterprise" }
       );
@@ -125,11 +125,18 @@ describe("QuonfigWebProvider", () => {
 
     it("respects custom targetingKeyMapping", async () => {
       const provider = makeProvider({ targetingKeyMapping: "account.uid" });
-      await provider.onContextChanged({}, { targetingKey: "acc-999" });
+      await provider.onContextChange({}, { targetingKey: "acc-999" });
 
       expect(mockUpdateContext).toHaveBeenCalledWith({
         account: { uid: "acc-999" },
       });
+    });
+
+    it("deprecated onContextChanged() delegates to onContextChange()", async () => {
+      const provider = makeProvider();
+      await provider.onContextChanged({}, { targetingKey: "legacy-user" });
+
+      expect(mockUpdateContext).toHaveBeenCalledWith({ user: { id: "legacy-user" } });
     });
   });
 

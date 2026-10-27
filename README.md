@@ -113,6 +113,30 @@ To use a different property for `targetingKey`:
 new QuonfigWebProvider({ sdkKey: "...", targetingKeyMapping: "account.id" });
 ```
 
+### Changing the context
+
+Call `OpenFeature.setContext()` when the user changes (sign-in, sign-out, switching accounts). The
+provider passes the new context to the client at once and fetches its values. Until that fetch
+lands, reads return the cached copy for the new context (reason `STALE`) if this browser has one,
+and your defaults otherwise. They never return the previous user's values, even when the fetch
+fails.
+
+## Typed reads
+
+Each OpenFeature getter reads only the config types that match it. Any other read returns your
+default with reason `ERROR` and error code `TYPE_MISMATCH`:
+
+| Getter            | Reads                                      |
+| ----------------- | ------------------------------------------ |
+| `getBooleanValue` | `bool`                                     |
+| `getStringValue`  | `string`; `duration` as an ISO 8601 string |
+| `getNumberValue`  | `int` and `double`                         |
+| `getObjectValue`  | `json`; `string_list` as an array          |
+
+Strings are never coerced: a stored `"true"` is not a boolean and a stored `"3"` is not a number. A
+stored value that does not match its declared type (an `int` holding `"twelve"` or `3.5`) also
+returns your default with `TYPE_MISMATCH`.
+
 ## What you lose vs. the native SDK
 
 The OpenFeature interface covers boolean, string, number, and object types. Some Quonfig-native
@@ -120,7 +144,9 @@ features require `provider.getClient()` (the escape hatch):
 
 1. **Log levels** (`shouldLog`, `logger`) — native SDK only
 2. **`string_list` configs** — access via `getObjectValue` and cast to `string[]`
-3. **`duration` configs** — `getStringValue` returns an ISO 8601 string; parse client-side
+3. **`duration` configs** — `getStringValue` returns an ISO 8601 string; parse client-side, or read
+   it natively with `provider.getClient().getDuration(key, defaultValue)` (`{ seconds, ms }`).
+   `getNumberValue` on a duration returns your default with `TYPE_MISMATCH`.
 4. **`bytes` configs** — not accessible via OpenFeature
 5. **Bulk config access** (`extract()`, the `configs` getter, `get()`) — native SDK only
 6. **Context keys** must use dot-notation (`"user.email"`), not nested objects
