@@ -249,14 +249,14 @@ describe("2.8 — Provider metadata", () => {
 });
 
 // ---------------------------------------------------------------------------
-// onContextChanged (client-side paradigm)
+// onContextChange (client-side paradigm)
 // ---------------------------------------------------------------------------
-describe("onContextChanged — static-context update", () => {
+describe("onContextChange — static-context update", () => {
   it("calls updateContext on the native client when context changes", async () => {
     const provider = makeProvider();
     await provider.initialize({ targetingKey: "user-1", "org.tier": "pro" });
 
-    await provider.onContextChanged(
+    await provider.onContextChange(
       { targetingKey: "user-1" },
       { targetingKey: "user-2", "org.tier": "enterprise" }
     );

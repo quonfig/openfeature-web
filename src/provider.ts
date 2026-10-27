@@ -102,9 +102,19 @@ export class QuonfigWebProvider implements Provider {
     if (this.currentStatus() !== "READY") setTimeout(() => this.syncStatus(), 0);
   }
 
-  async onContextChanged(_oldCtx: EvaluationContext, newCtx: EvaluationContext): Promise<void> {
+  /** Called by OpenFeature on `OpenFeature.setContext()`; switches the client to the new context. */
+  async onContextChange(_oldCtx: EvaluationContext, newCtx: EvaluationContext): Promise<void> {
     const nativeCtx = mapContext(newCtx, this.targetingKeyMapping);
     await this.client.updateContext(nativeCtx);
+  }
+
+  /**
+   * @deprecated Use `onContextChange`, the hook OpenFeature calls. Before 2.0.0
+   * the provider implemented only this name, so `OpenFeature.setContext()` never
+   * reached the client. Kept so direct callers keep working.
+   */
+  async onContextChanged(oldCtx: EvaluationContext, newCtx: EvaluationContext): Promise<void> {
+    return this.onContextChange(oldCtx, newCtx);
   }
 
   async shutdown(): Promise<void> {

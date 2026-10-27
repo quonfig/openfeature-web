@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.0.0 - unreleased
+
+Requires `@quonfig/javascript` 2.0.0: the cross-SDK typed-getter contract (qfg-zvyy) and a context
+switch that never serves the previous user's values (qfg-xiub). Raise the peer floor from `>=1.8.0`
+to `>=2.0.0` (dev pin `^2.0.0`).
+
+### UPGRADE to 2.0
+
+1. **`OpenFeature.setContext()` now reaches the client.** The provider implemented the context hook
+   as `onContextChanged`, but OpenFeature calls `onContextChange`, so in 1.x a context change after
+   `setProviderAndWait()` was ignored: the client kept evaluating for the first context until the
+   page reloaded. The provider now implements `onContextChange`. If you worked around this by
+   calling `provider.getClient().updateContext()` yourself, remove that call. `onContextChanged`
+   stays as a deprecated alias for direct callers.
+2. **A context switch stops serving the previous user's values at once.** Until the new context's
+   fetch lands, reads return the cached copy for that context (reason `STALE`) if this browser has
+   one, and your default otherwise (reason `ERROR`, error code `FLAG_NOT_FOUND`). When the fetch
+   fails, they keep returning the default rather than the previous user's values.
+3. **A stored value that does not match its declared type returns your default.** An `int` holding
+   `"twelve"` or `3.5`, a `double` holding `"abc"`, a `bool` holding `"true"`, or a `string_list`
+   holding a non-array used to resolve through the getter that matched its JSON shape (for example
+   `getStringValue` returned `"twelve"`, `getNumberValue` returned `3.5`). Every getter now returns
+   your default with reason `ERROR` and error code `TYPE_MISMATCH`. api-delivery does not send such
+   values today; this is a guard, not an expected path.
+
+Reads with the getter for another type (a stored string `"true"` read as a boolean, an int read as a
+string, a duration read as a number) already returned your default with `TYPE_MISMATCH`, and still
+do. Durations still resolve through `getStringValue` as an ISO 8601 string.
+
+### Changed
+
+- New `test/unit/typed-getter-contract.test.ts` drives the real provider and the real
+  `@quonfig/javascript` client through the OpenFeature web client (only `fetch` is stubbed) against
+  the `getter.contract.*` fixtures from sdk-javascript's contract matrix, plus the context-switch
+  cases.
+
 ## 1.1.0 - 2026-10-23
 
 - **Init-failure status mapping (qfg-9p4i.12).** Requires `@quonfig/javascript` 1.6.0 or later,
