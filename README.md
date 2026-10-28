@@ -133,9 +133,12 @@ default with reason `ERROR` and error code `TYPE_MISMATCH`:
 | `getNumberValue`  | `int` and `double`                         |
 | `getObjectValue`  | `json`; `string_list` as an array          |
 
-Strings are never coerced: a stored `"true"` is not a boolean and a stored `"3"` is not a number. A
-stored value that does not match its declared type (an `int` holding `"twelve"` or `3.5`) also
-returns your default with `TYPE_MISMATCH`.
+Strings are never coerced: a stored `"true"` is not a boolean and a stored `"3"` is not a number.
+
+A stored value that cannot be parsed as its declared type (an `int` holding `"twelve"` or `3.5`, a
+`duration` holding `"30s"`) returns your default with reason `ERROR` and error code `PARSE_ERROR`
+when you read it with the getter for that type (`getNumberValue` on the `int`, `getStringValue` on
+the `duration`). Read with the getter for another type, it is `TYPE_MISMATCH` as above.
 
 ## What you lose vs. the native SDK
 

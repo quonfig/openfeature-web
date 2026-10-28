@@ -213,10 +213,22 @@ export class QuonfigWebProvider implements Provider {
     // is PROVIDER_NOT_READY.
     if (details.reason === "ERROR") {
       const noConfig = !this.client.loaded;
+      let errorCode = noConfig ? ErrorCode.PROVIDER_NOT_READY : toOFErrorCode(details.errorCode);
+      // The SDK reports a stored value that failed to decode as its declared
+      // type as TYPE_MISMATCH, without knowing what type the caller asked
+      // for. Read with the method for that declared type it is a data
+      // problem: PARSE_ERROR (qfg-9xsl). Read with the method for another
+      // type it stays TYPE_MISMATCH.
+      if (
+        errorCode === ErrorCode.TYPE_MISMATCH &&
+        readsAs(this.client.configs[flagKey]?.type, expectedType)
+      ) {
+        errorCode = ErrorCode.PARSE_ERROR;
+      }
       return {
         value: defaultValue,
         reason: StandardResolutionReasons.ERROR,
-        errorCode: noConfig ? ErrorCode.PROVIDER_NOT_READY : toOFErrorCode(details.errorCode),
+        errorCode,
         ...(details.errorMessage ? { errorMessage: details.errorMessage } : {}),
         variant: details.variant,
         flagMetadata: details.flagMetadata as ResolutionDetails<T>["flagMetadata"],
@@ -337,6 +349,34 @@ function toOFReason(reason: EvaluationDetails["reason"]): ResolutionReason {
     case "ERROR":
     default:
       return StandardResolutionReasons.ERROR;
+  }
+}
+
+/**
+ * True when a config of Quonfig value type `declaredType` is read with the OF
+ * method for `expectedType`. OpenFeature has one number method (int and
+ * double), reads durations as ISO 8601 strings, and reads string_list and
+ * json through the object method.
+ */
+function readsAs(
+  declaredType: string | undefined,
+  expectedType: "boolean" | "string" | "number" | "object"
+): boolean {
+  switch (declaredType) {
+    case "bool":
+      return expectedType === "boolean";
+    case "string":
+    case "log_level":
+    case "duration":
+      return expectedType === "string";
+    case "int":
+    case "double":
+      return expectedType === "number";
+    case "string_list":
+    case "json":
+      return expectedType === "object";
+    default:
+      return false;
   }
 }
 

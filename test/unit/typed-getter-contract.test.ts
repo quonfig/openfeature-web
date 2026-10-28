@@ -5,9 +5,10 @@
 // in the form api-delivery's eval-with-context sends them to a frontend key)
 // plus a few values whose JSON shape does not match their declared type.
 //
-// The rule: a flag read with the method for another type, or one whose stored
-// value is malformed, returns the caller's default with reason ERROR and
-// errorCode TYPE_MISMATCH. Strings are never coerced. OpenFeature has a single
+// The rule: a flag read with the method for another type returns the caller's
+// default with reason ERROR and errorCode TYPE_MISMATCH. One read with the
+// method for its own type whose stored value is malformed returns the default
+// with errorCode PARSE_ERROR (qfg-9xsl). Strings are never coerced. OpenFeature has a single
 // number getter, which reads int and double configs.
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from "vitest";
 import { ErrorCode, OpenFeature, StandardResolutionReasons } from "@openfeature/web-sdk";
@@ -70,11 +71,21 @@ const ok = (body: unknown) =>
     headers: { "Content-Type": "application/json" },
   });
 
-function expectTypeMismatch(details: EvaluationDetails<FlagValue>, defaultValue: FlagValue) {
+function expectError(
+  details: EvaluationDetails<FlagValue>,
+  defaultValue: FlagValue,
+  errorCode: ErrorCode
+) {
   expect(details.value).toEqual(defaultValue);
   expect(details.reason).toBe(StandardResolutionReasons.ERROR);
-  expect(details.errorCode).toBe(ErrorCode.TYPE_MISMATCH);
+  expect(details.errorCode).toBe(errorCode);
 }
+
+const expectTypeMismatch = (details: EvaluationDetails<FlagValue>, defaultValue: FlagValue) =>
+  expectError(details, defaultValue, ErrorCode.TYPE_MISMATCH);
+
+const expectParseError = (details: EvaluationDetails<FlagValue>, defaultValue: FlagValue) =>
+  expectError(details, defaultValue, ErrorCode.PARSE_ERROR);
 
 describe("typed-getter contract through the OpenFeature web client", () => {
   const DOMAIN = "typed-getter-contract";
@@ -98,7 +109,36 @@ describe("typed-getter contract through the OpenFeature web client", () => {
     vi.restoreAllMocks();
   });
 
-  describe("malformed stored values return the default with TYPE_MISMATCH", () => {
+  // qfg-9xsl: a malformed value read with the method for its own type is a
+  // data problem (PARSE_ERROR); read with the method for another type it is a
+  // caller problem (TYPE_MISMATCH), whether or not the value parses.
+  describe("malformed stored values read with their own type return the default with PARSE_ERROR", () => {
+    it('number on an int config holding "twelve" returns the default', () => {
+      expectParseError(client.getNumberDetails(KEY("int.malformed"), 7), 7);
+    });
+
+    it('number on a double config holding "abc" returns the default', () => {
+      expectParseError(client.getNumberDetails(KEY("double.malformed"), 1.5), 1.5);
+    });
+
+    it("number on an int config holding 3.5 returns the default, not 3.5", () => {
+      expectParseError(client.getNumberDetails(KEY("int.fractional"), 7), 7);
+    });
+
+    it('string on a malformed duration ("30s") returns the default', () => {
+      expectParseError(client.getStringDetails(KEY("duration.malformed"), "PT0S"), "PT0S");
+    });
+
+    it('boolean on a bool config holding "true" returns the default, not true', () => {
+      expectParseError(client.getBooleanDetails(KEY("bool.string"), false), false);
+    });
+
+    it("object on a string_list config holding a non-array returns the default", () => {
+      expectParseError(client.getObjectDetails(KEY("string_list.not_array"), []), []);
+    });
+  });
+
+  describe("malformed stored values read with another type return the default with TYPE_MISMATCH", () => {
     // @quonfig/javascript 1.x passed these through get()/getDetails() as-is.
     it('string on an int config holding "twelve" returns the default, not "twelve"', () => {
       expectTypeMismatch(client.getStringDetails(KEY("int.malformed"), "fallback"), "fallback");
@@ -106,10 +146,6 @@ describe("typed-getter contract through the OpenFeature web client", () => {
 
     it('string on a double config holding "abc" returns the default, not "abc"', () => {
       expectTypeMismatch(client.getStringDetails(KEY("double.malformed"), "fallback"), "fallback");
-    });
-
-    it("number on an int config holding 3.5 returns the default, not 3.5", () => {
-      expectTypeMismatch(client.getNumberDetails(KEY("int.fractional"), 7), 7);
     });
 
     it('string on a bool config holding "true" returns the default, not "true"', () => {
@@ -123,16 +159,12 @@ describe("typed-getter contract through the OpenFeature web client", () => {
       );
     });
 
-    it("number on a malformed int returns the default", () => {
-      expectTypeMismatch(client.getNumberDetails(KEY("int.malformed"), 12), 12);
+    it("number on a malformed duration returns the default", () => {
+      expectTypeMismatch(client.getNumberDetails(KEY("duration.malformed"), 5), 5);
     });
 
-    it("number on a malformed double returns the default", () => {
-      expectTypeMismatch(client.getNumberDetails(KEY("double.malformed"), 1.5), 1.5);
-    });
-
-    it("string on a malformed duration returns the default", () => {
-      expectTypeMismatch(client.getStringDetails(KEY("duration.malformed"), "PT0S"), "PT0S");
+    it("boolean on a malformed int returns the default", () => {
+      expectTypeMismatch(client.getBooleanDetails(KEY("int.malformed"), true), true);
     });
   });
 
