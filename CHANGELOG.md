@@ -1,6 +1,16 @@
 # Changelog
 
-## 2.0.0 - unreleased
+## 2.1.0 - unreleased
+
+- **A malformed stored value reports `PARSE_ERROR` (qfg-9xsl).** A config whose value cannot be
+  parsed as its declared type (an `int` holding `"twelve"` or `3.5`, a `double` holding `"abc"`, a
+  `duration` holding `"30s"`), read with the getter for that type, still returns your default with
+  reason `ERROR`, but the error code is now `PARSE_ERROR` (was `TYPE_MISMATCH`). Reading a config
+  with the getter for another type stays `TYPE_MISMATCH`, whether or not its value parses. This
+  matches the other Quonfig OpenFeature providers and the shared OpenFeature cases in
+  integration-test-data. api-delivery does not send malformed values today; this is a guard.
+
+## 2.0.0 - 2026-10-27
 
 Requires `@quonfig/javascript` 2.0.0: the cross-SDK typed-getter contract (qfg-zvyy) and a context
 switch that never serves the previous user's values (qfg-xiub). Raise the peer floor from `>=1.8.0`
