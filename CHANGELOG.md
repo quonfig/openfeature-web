@@ -1,6 +1,21 @@
 # Changelog
 
-## 2.1.0 - unreleased
+## 2.2.0 - 2026-10-29
+
+- **`PARSE_ERROR` from `@quonfig/javascript` passes straight through (qfg-wg1n).** An upcoming
+  `@quonfig/javascript` reports a value that cannot be parsed as its declared type with error code
+  `PARSE_ERROR` (2.0.x reports `TYPE_MISMATCH`). The provider now returns that as OpenFeature
+  `PARSE_ERROR` instead of `GENERAL`. Read with the getter for another type it stays
+  `TYPE_MISMATCH`, as in 2.1.0. The 2.0.x handling from 2.1.0 is unchanged, and the peer floor stays
+  `>=2.0.0`, so you get the same codes with either SDK version.
+- **A duration read with `getStringValue` returns the text as stored (qfg-dcrr).** A duration stored
+  as `"PT90S"` now reads as `"PT90S"`. Before, the provider re-serialized it to `"PT1M30S"`.
+- **A `json` config is read only with `getObjectValue` (qfg-dcrr).** A `json` config whose value is
+  a JSON scalar (`true`, `3`) read with `getBooleanValue` or `getNumberValue` now returns your
+  default with reason `ERROR` and error code `TYPE_MISMATCH`. Before, the provider returned the
+  value.
+
+## 2.1.0 - 2026-10-28
 
 - **A malformed stored value reports `PARSE_ERROR` (qfg-9xsl).** A config whose value cannot be
   parsed as its declared type (an `int` holding `"twelve"` or `3.5`, a `double` holding `"abc"`, a

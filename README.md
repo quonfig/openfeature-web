@@ -126,14 +126,15 @@ fails.
 Each OpenFeature getter reads only the config types that match it. Any other read returns your
 default with reason `ERROR` and error code `TYPE_MISMATCH`:
 
-| Getter            | Reads                                      |
-| ----------------- | ------------------------------------------ |
-| `getBooleanValue` | `bool`                                     |
-| `getStringValue`  | `string`; `duration` as an ISO 8601 string |
-| `getNumberValue`  | `int` and `double`                         |
-| `getObjectValue`  | `json`; `string_list` as an array          |
+| Getter            | Reads                                                                          |
+| ----------------- | ------------------------------------------------------------------------------ |
+| `getBooleanValue` | `bool`                                                                         |
+| `getStringValue`  | `string`; `duration` as its stored ISO 8601 string (`"PT90S"` stays `"PT90S"`) |
+| `getNumberValue`  | `int` and `double`                                                             |
+| `getObjectValue`  | `json` (whatever JSON value it holds); `string_list` as an array               |
 
-Strings are never coerced: a stored `"true"` is not a boolean and a stored `"3"` is not a number.
+Strings are never coerced: a stored `"true"` is not a boolean and a stored `"3"` is not a number. A
+`json` config is read only with `getObjectValue`, even when its value is `true` or `3`.
 
 A stored value that cannot be parsed as its declared type (an `int` holding `"twelve"` or `3.5`, a
 `duration` holding `"30s"`) returns your default with reason `ERROR` and error code `PARSE_ERROR`
