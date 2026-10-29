@@ -208,22 +208,33 @@ export class QuonfigWebProvider implements Provider {
       };
     }
 
-    // Errors from the SDK side (FLAG_NOT_FOUND, GENERAL) — pass through. With
-    // no config at all (init failed or "continue" on defaults) the outage code
-    // is PROVIDER_NOT_READY.
+    // The config's declared Quonfig value type, when the client exposes it.
+    const config = this.client.configs?.[flagKey];
+    const declaredType = config?.type;
+
+    // Errors from the SDK side (FLAG_NOT_FOUND, PARSE_ERROR, GENERAL) — pass
+    // through. With no config at all (init failed or "continue" on defaults)
+    // the outage code is PROVIDER_NOT_READY.
     if (details.reason === "ERROR") {
       const noConfig = !this.client.loaded;
       let errorCode = noConfig ? ErrorCode.PROVIDER_NOT_READY : toOFErrorCode(details.errorCode);
-      // The SDK reports a stored value that failed to decode as its declared
-      // type as TYPE_MISMATCH, without knowing what type the caller asked
-      // for. Read with the method for that declared type it is a data
-      // problem: PARSE_ERROR (qfg-9xsl). Read with the method for another
-      // type it stays TYPE_MISMATCH.
-      if (
-        errorCode === ErrorCode.TYPE_MISMATCH &&
-        readsAs(this.client.configs[flagKey]?.type, expectedType)
-      ) {
+      // @quonfig/javascript 2.0.x reports a stored value that failed to
+      // decode as its declared type as TYPE_MISMATCH, without knowing what
+      // type the caller asked for. Read with the method for that declared
+      // type it is a data problem: PARSE_ERROR (qfg-9xsl).
+      if (errorCode === ErrorCode.TYPE_MISMATCH && readsAs(declaredType, expectedType)) {
         errorCode = ErrorCode.PARSE_ERROR;
+      }
+      // Later SDK versions report PARSE_ERROR themselves (qfg-wg1n), also
+      // without knowing the requested type. Read with the method for another
+      // type it is a caller problem: TYPE_MISMATCH (integration-test-data
+      // tests/openfeature Case 6).
+      if (
+        errorCode === ErrorCode.PARSE_ERROR &&
+        declaredType !== undefined &&
+        !readsAs(declaredType, expectedType)
+      ) {
+        errorCode = ErrorCode.TYPE_MISMATCH;
       }
       return {
         value: defaultValue,
@@ -238,7 +249,13 @@ export class QuonfigWebProvider implements Provider {
     // Coerce the resolved value to the expected OF shape. A null result
     // signals provider-level TYPE_MISMATCH (the SDK has no requested-type
     // hint, so this happens here, not inside getDetails).
-    const coerced = this._coerce<T>(details.value, expectedType, defaultValue);
+    //
+    // A json config is read with the object method whatever JSON value it
+    // holds, so a json config holding `true` is not a boolean (qfg-dcrr).
+    const wrongJsonRead = declaredType === "json" && expectedType !== "object";
+    const coerced = wrongJsonRead
+      ? null
+      : this._coerce<T>(details.value, expectedType, config?.rawValue?.value);
     if (coerced === null) {
       return {
         value: defaultValue,
@@ -266,7 +283,7 @@ export class QuonfigWebProvider implements Provider {
   private _coerce<T>(
     raw: unknown,
     expectedType: "boolean" | "string" | "number" | "object",
-    defaultValue: T
+    storedValue: unknown
   ): T | null {
     switch (expectedType) {
       case "boolean":
@@ -275,8 +292,11 @@ export class QuonfigWebProvider implements Provider {
 
       case "string":
         if (typeof raw === "string") return raw as unknown as T;
-        // Duration objects: return ISO 8601 string representation
+        // Duration objects: return the ISO 8601 text as stored ("PT90S" stays
+        // "PT90S", qfg-dcrr). The canonical form is the fallback when the
+        // client does not expose the stored text.
         if (raw !== null && typeof raw === "object" && "seconds" in raw && "ms" in raw) {
+          if (typeof storedValue === "string") return storedValue as unknown as T;
           return this._durationToISO(raw as { seconds: number; ms: number }) as unknown as T;
         }
         return null;
@@ -380,13 +400,19 @@ function readsAs(
   }
 }
 
-/** Translate sdk-javascript's EvaluationErrorCode onto the OF ErrorCode enum. */
-function toOFErrorCode(code: EvaluationDetails["errorCode"]): ErrorCode {
+/**
+ * Translate sdk-javascript's EvaluationErrorCode onto the OF ErrorCode enum.
+ * Takes a string: "PARSE_ERROR" is not in the 2.0.x union, which the peer
+ * floor still allows.
+ */
+function toOFErrorCode(code: EvaluationDetails["errorCode"] | string | undefined): ErrorCode {
   switch (code) {
     case "FLAG_NOT_FOUND":
       return ErrorCode.FLAG_NOT_FOUND;
     case "TYPE_MISMATCH":
       return ErrorCode.TYPE_MISMATCH;
+    case "PARSE_ERROR":
+      return ErrorCode.PARSE_ERROR;
     case "GENERAL":
     default:
       return ErrorCode.GENERAL;

@@ -33,6 +33,12 @@ const STORED: Record<string, Stored> = {
   string_list: { type: "string_list", value: ["a", "b"] },
   json: { type: "json", value: { a: 1 } },
   duration: { type: "duration", value: "PT30S" },
+  // qfg-dcrr: a duration whose canonical form differs from the stored text.
+  "duration.seconds": { type: "duration", value: "PT90S" },
+  // qfg-dcrr: a json config whose value is a JSON scalar.
+  "json.true": { type: "json", value: true },
+  "json.string": { type: "json", value: "fast" },
+  "json.number": { type: "json", value: 3 },
   "string.false": { type: "string", value: "false" },
   "string.true": { type: "string", value: "true" },
   "string.number": { type: "string", value: "3" },
@@ -204,6 +210,20 @@ describe("typed-getter contract through the OpenFeature web client", () => {
     it("number on a duration config returns the default", () => {
       expectTypeMismatch(client.getNumberDetails(KEY("duration"), 5), 5);
     });
+
+    // qfg-dcrr: a json config is read with the object method, whatever JSON
+    // value it holds.
+    it("boolean on a json config holding true returns the default, not true", () => {
+      expectTypeMismatch(client.getBooleanDetails(KEY("json.true"), false), false);
+    });
+
+    it('string on a json config holding "fast" returns the default', () => {
+      expectTypeMismatch(client.getStringDetails(KEY("json.string"), "fallback"), "fallback");
+    });
+
+    it("number on a json config holding 3 returns the default", () => {
+      expectTypeMismatch(client.getNumberDetails(KEY("json.number"), 7), 7);
+    });
   });
 
   describe("matching and convertible types resolve", () => {
@@ -245,6 +265,10 @@ describe("typed-getter contract through the OpenFeature web client", () => {
       const details = client.getStringDetails(KEY("duration"), "PT0S");
       expect(details.value).toBe("PT30S");
       expect(details.reason).toBe(StandardResolutionReasons.STATIC);
+    });
+
+    it('string on a duration config stored as "PT90S" returns "PT90S", not "PT1M30S" (qfg-dcrr)', () => {
+      expect(client.getStringValue(KEY("duration.seconds"), "PT0S")).toBe("PT90S");
     });
   });
 });
