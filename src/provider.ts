@@ -218,16 +218,9 @@ export class QuonfigWebProvider implements Provider {
     if (details.reason === "ERROR") {
       const noConfig = !this.client.loaded;
       let errorCode = noConfig ? ErrorCode.PROVIDER_NOT_READY : toOFErrorCode(details.errorCode);
-      // @quonfig/javascript 2.0.x reports a stored value that failed to
-      // decode as its declared type as TYPE_MISMATCH, without knowing what
-      // type the caller asked for. Read with the method for that declared
-      // type it is a data problem: PARSE_ERROR (qfg-9xsl).
-      if (errorCode === ErrorCode.TYPE_MISMATCH && readsAs(declaredType, expectedType)) {
-        errorCode = ErrorCode.PARSE_ERROR;
-      }
-      // Later SDK versions report PARSE_ERROR themselves (qfg-wg1n), also
-      // without knowing the requested type. Read with the method for another
-      // type it is a caller problem: TYPE_MISMATCH (integration-test-data
+      // The SDK reports a malformed value as PARSE_ERROR (qfg-wg1n) without
+      // knowing the requested type. Read with the method for another type it
+      // is a caller problem: TYPE_MISMATCH (integration-test-data
       // tests/openfeature Case 6).
       if (
         errorCode === ErrorCode.PARSE_ERROR &&
@@ -418,12 +411,8 @@ function readsAs(
   }
 }
 
-/**
- * Translate sdk-javascript's EvaluationErrorCode onto the OF ErrorCode enum.
- * Takes a string: "PARSE_ERROR" is not in the 2.0.x union, which the peer
- * floor still allows.
- */
-function toOFErrorCode(code: EvaluationDetails["errorCode"] | string | undefined): ErrorCode {
+/** Translate sdk-javascript's EvaluationErrorCode onto the OF ErrorCode enum. */
+function toOFErrorCode(code: EvaluationDetails["errorCode"]): ErrorCode {
   switch (code) {
     case "FLAG_NOT_FOUND":
       return ErrorCode.FLAG_NOT_FOUND;
