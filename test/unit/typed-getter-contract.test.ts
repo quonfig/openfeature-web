@@ -211,8 +211,22 @@ describe("typed-getter contract through the OpenFeature web client", () => {
       expectTypeMismatch(client.getNumberDetails(KEY("duration"), 5), 5);
     });
 
-    // qfg-dcrr: a json config is read with the object method, whatever JSON
-    // value it holds.
+    // qfg-v82oi: OpenFeature reads a duration through the string method only.
+    it("object on a duration config returns the default, not {seconds, ms}", () => {
+      expectTypeMismatch(client.getObjectDetails(KEY("duration"), { d: true }), { d: true });
+    });
+
+    // qfg-v82oi: the object method reads a json config holding an object or
+    // array; a json config holding a scalar returns the default.
+    it("object on a json config holding true returns the default", () => {
+      expectTypeMismatch(client.getObjectDetails(KEY("json.true"), { d: true }), { d: true });
+    });
+
+    it("object on a json config holding 3 returns the default", () => {
+      expectTypeMismatch(client.getObjectDetails(KEY("json.number"), { d: true }), { d: true });
+    });
+
+    // qfg-dcrr: a json config is read only with the object method.
     it("boolean on a json config holding true returns the default, not true", () => {
       expectTypeMismatch(client.getBooleanDetails(KEY("json.true"), false), false);
     });

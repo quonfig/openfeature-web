@@ -250,10 +250,16 @@ export class QuonfigWebProvider implements Provider {
     // signals provider-level TYPE_MISMATCH (the SDK has no requested-type
     // hint, so this happens here, not inside getDetails).
     //
-    // A json config is read with the object method whatever JSON value it
-    // holds, so a json config holding `true` is not a boolean (qfg-dcrr).
-    const wrongJsonRead = declaredType === "json" && expectedType !== "object";
-    const coerced = wrongJsonRead
+    // A config read with the method for another type is TYPE_MISMATCH even
+    // when its value has the requested shape: a json config holding `true` is
+    // not a boolean (qfg-dcrr), and a duration's {seconds, ms} is not an
+    // object (qfg-v82oi). The object method itself still needs an object or
+    // array, so a json config holding a scalar is TYPE_MISMATCH there too.
+    const wrongTypeRead =
+      declaredType !== undefined &&
+      KNOWN_TYPES.has(declaredType) &&
+      !readsAs(declaredType, expectedType);
+    const coerced = wrongTypeRead
       ? null
       : this._coerce<T>(details.value, expectedType, config?.rawValue?.value);
     if (coerced === null) {
@@ -371,6 +377,18 @@ function toOFReason(reason: EvaluationDetails["reason"]): ResolutionReason {
       return StandardResolutionReasons.ERROR;
   }
 }
+
+/** The Quonfig value types `readsAs` knows. */
+const KNOWN_TYPES: ReadonlySet<string> = new Set([
+  "bool",
+  "string",
+  "log_level",
+  "duration",
+  "int",
+  "double",
+  "string_list",
+  "json",
+]);
 
 /**
  * True when a config of Quonfig value type `declaredType` is read with the OF
