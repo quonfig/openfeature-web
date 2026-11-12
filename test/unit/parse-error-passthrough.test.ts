@@ -1,11 +1,10 @@
-// qfg-wg1n: an upcoming @quonfig/javascript reports a value that cannot be
-// parsed as its declared type (a malformed stored int, double or duration) as
-// errorCode PARSE_ERROR. Released versions (2.0.x) never do: they report
-// TYPE_MISMATCH, and the provider turns that into PARSE_ERROR when the getter
-// matches the config's declared type (qfg-9xsl). The provider must handle both.
-//
-// The SDK details result is stubbed here, because no released SDK emits
-// PARSE_ERROR yet.
+// qfg-wg1n: @quonfig/javascript 2.1.0+ (the peer floor) reports a value that
+// cannot be parsed as its declared type (a malformed stored int, double or
+// duration) as errorCode PARSE_ERROR. The provider passes it through, except
+// on a read with the getter for another type, which is TYPE_MISMATCH. The
+// 2.0.x workaround that turned TYPE_MISMATCH into PARSE_ERROR is gone
+// (qfg-ln7d). The SDK details result is stubbed here; typed-getter-contract
+// covers the same cases with the real SDK.
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ErrorCode, StandardResolutionReasons } from "@openfeature/web-sdk";
 import { QuonfigWebProvider } from "../../src/provider";
@@ -91,11 +90,13 @@ describe("SDK PARSE_ERROR passthrough (qfg-wg1n)", () => {
     expect(result.errorCode).toBe(ErrorCode.TYPE_MISMATCH);
   });
 
-  it("keeps the released-SDK workaround: TYPE_MISMATCH on the declared type's getter is PARSE_ERROR", () => {
-    mockConfigs = { "cfg.key": { type: "double" } };
+  it("passes the SDK's TYPE_MISMATCH through on the declared type's getter (qfg-ln7d)", () => {
+    // sdk-javascript 2.1.0 keeps TYPE_MISMATCH for an entry it cannot decode
+    // at all (a json value sent as a string).
+    mockConfigs = { "cfg.key": { type: "json" } };
     mockGetDetails.mockReturnValue(errorDetails("TYPE_MISMATCH"));
-    const result = new QuonfigWebProvider({ sdkKey: "k" }).resolveNumberEvaluation("cfg.key", 1.5);
-    expect(result.errorCode).toBe(ErrorCode.PARSE_ERROR);
+    const result = new QuonfigWebProvider({ sdkKey: "k" }).resolveObjectEvaluation("cfg.key", {});
+    expect(result.errorCode).toBe(ErrorCode.TYPE_MISMATCH);
   });
 
   it("an unknown SDK error code still maps to GENERAL", () => {

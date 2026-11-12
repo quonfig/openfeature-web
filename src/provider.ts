@@ -218,16 +218,9 @@ export class QuonfigWebProvider implements Provider {
     if (details.reason === "ERROR") {
       const noConfig = !this.client.loaded;
       let errorCode = noConfig ? ErrorCode.PROVIDER_NOT_READY : toOFErrorCode(details.errorCode);
-      // @quonfig/javascript 2.0.x reports a stored value that failed to
-      // decode as its declared type as TYPE_MISMATCH, without knowing what
-      // type the caller asked for. Read with the method for that declared
-      // type it is a data problem: PARSE_ERROR (qfg-9xsl).
-      if (errorCode === ErrorCode.TYPE_MISMATCH && readsAs(declaredType, expectedType)) {
-        errorCode = ErrorCode.PARSE_ERROR;
-      }
-      // Later SDK versions report PARSE_ERROR themselves (qfg-wg1n), also
-      // without knowing the requested type. Read with the method for another
-      // type it is a caller problem: TYPE_MISMATCH (integration-test-data
+      // The SDK reports a malformed value as PARSE_ERROR (qfg-wg1n) without
+      // knowing the requested type. Read with the method for another type it
+      // is a caller problem: TYPE_MISMATCH (integration-test-data
       // tests/openfeature Case 6).
       if (
         errorCode === ErrorCode.PARSE_ERROR &&
@@ -250,10 +243,16 @@ export class QuonfigWebProvider implements Provider {
     // signals provider-level TYPE_MISMATCH (the SDK has no requested-type
     // hint, so this happens here, not inside getDetails).
     //
-    // A json config is read with the object method whatever JSON value it
-    // holds, so a json config holding `true` is not a boolean (qfg-dcrr).
-    const wrongJsonRead = declaredType === "json" && expectedType !== "object";
-    const coerced = wrongJsonRead
+    // A config read with the method for another type is TYPE_MISMATCH even
+    // when its value has the requested shape: a json config holding `true` is
+    // not a boolean (qfg-dcrr), and a duration's {seconds, ms} is not an
+    // object (qfg-v82oi). The object method itself still needs an object or
+    // array, so a json config holding a scalar is TYPE_MISMATCH there too.
+    const wrongTypeRead =
+      declaredType !== undefined &&
+      KNOWN_TYPES.has(declaredType) &&
+      !readsAs(declaredType, expectedType);
+    const coerced = wrongTypeRead
       ? null
       : this._coerce<T>(details.value, expectedType, config?.rawValue?.value);
     if (coerced === null) {
@@ -372,6 +371,18 @@ function toOFReason(reason: EvaluationDetails["reason"]): ResolutionReason {
   }
 }
 
+/** The Quonfig value types `readsAs` knows. */
+const KNOWN_TYPES: ReadonlySet<string> = new Set([
+  "bool",
+  "string",
+  "log_level",
+  "duration",
+  "int",
+  "double",
+  "string_list",
+  "json",
+]);
+
 /**
  * True when a config of Quonfig value type `declaredType` is read with the OF
  * method for `expectedType`. OpenFeature has one number method (int and
@@ -400,12 +411,8 @@ function readsAs(
   }
 }
 
-/**
- * Translate sdk-javascript's EvaluationErrorCode onto the OF ErrorCode enum.
- * Takes a string: "PARSE_ERROR" is not in the 2.0.x union, which the peer
- * floor still allows.
- */
-function toOFErrorCode(code: EvaluationDetails["errorCode"] | string | undefined): ErrorCode {
+/** Translate sdk-javascript's EvaluationErrorCode onto the OF ErrorCode enum. */
+function toOFErrorCode(code: EvaluationDetails["errorCode"]): ErrorCode {
   switch (code) {
     case "FLAG_NOT_FOUND":
       return ErrorCode.FLAG_NOT_FOUND;
