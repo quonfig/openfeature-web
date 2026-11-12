@@ -1,5 +1,25 @@
 # Changelog
 
+## 2.3.0 - 2026-11-12
+
+Requires `@quonfig/javascript` 2.1.0. The peer floor rises from `>=2.0.0` to `>=2.1.0` (dev pin
+`^2.1.0`); raising a runtime peer floor is why this is a minor.
+
+- **The provider requires `@quonfig/javascript` 2.1.0, which reports `PARSE_ERROR` itself
+  (qfg-ln7d).** The 2.0.x workaround that turned a `TYPE_MISMATCH` on a read with the config's own
+  type into `PARSE_ERROR` is gone; the SDK's code passes straight through. Malformed values (an
+  `int` holding `"twelve"`, a `duration` holding `"30s"`) still return your default with
+  `PARSE_ERROR`. An entry the SDK cannot decode at all (a `json` value sent as a string) now reports
+  the SDK's `TYPE_MISMATCH` (was `PARSE_ERROR`). Reading a config with the getter for another type
+  stays `TYPE_MISMATCH`.
+- **`getObjectValue` on a `duration` config returns your default with `TYPE_MISMATCH` (qfg-v82oi).**
+  Before, it returned the raw `{ seconds, ms }` object. Read a duration with `getStringValue` (its
+  ISO 8601 text) or natively with `provider.getClient().getDuration()`. A `json` config holding a
+  scalar (`true`, `3`) read with `getObjectValue` still returns your default with `TYPE_MISMATCH`:
+  the object method reads a `json` object or array, and a `string_list`.
+- **README browser snippets use a frontend `qf_pk_` key (qfg-x6juc).** They showed a `qf_sk_` server
+  key, which must never ship in a browser bundle.
+
 ## 2.2.0 - 2026-10-29
 
 - **`PARSE_ERROR` from `@quonfig/javascript` passes straight through (qfg-wg1n).** An upcoming
