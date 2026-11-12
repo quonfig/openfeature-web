@@ -25,7 +25,7 @@ import { OpenFeature } from "@openfeature/web-sdk";
 import { QuonfigWebProvider } from "@quonfig/openfeature-web";
 
 const provider = new QuonfigWebProvider({
-  sdkKey: "qf_sk_...",
+  sdkKey: "qf_pk_...",
 });
 
 await OpenFeature.setContext({
@@ -47,7 +47,7 @@ import { OpenFeatureProvider, useBooleanFlagValue } from "@openfeature/react-sdk
 import { OpenFeature } from "@openfeature/web-sdk";
 import { QuonfigWebProvider } from "@quonfig/openfeature-web";
 
-const provider = new QuonfigWebProvider({ sdkKey: "qf_sk_..." });
+const provider = new QuonfigWebProvider({ sdkKey: "qf_pk_..." });
 await OpenFeature.setProviderAndWait(provider);
 
 function MyComponent() {
@@ -68,7 +68,7 @@ function App() {
 
 ```typescript
 const provider = new QuonfigWebProvider({
-  sdkKey: "qf_sk_...", // required
+  sdkKey: "qf_pk_...", // required
   targetingKeyMapping: "user.id", // default; maps OpenFeature targetingKey
   apiUrl: "https://custom.api.com", // optional — override API base URL
   timeout: 5000, // optional — request timeout in ms
